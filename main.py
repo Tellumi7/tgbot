@@ -1,40 +1,37 @@
+import asyncio
 import os
-from aiogram import Bot, Dispatcher, F
-from aiogram.enums import ParseMode
-from aiogram.types import Message
-from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
-from aiohttp import web
 from dotenv import load_dotenv
 
+from aiogram import Bot, Dispatcher, types
+from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
+
+# Загружаем токен из .env
 load_dotenv()
-
 TOKEN = os.getenv("TELEGRAM_TOKEN")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # мы установим позже
-if not TOKEN:
-    raise SystemExit("TELEGRAM_TOKEN is not set")
 
-bot = Bot(token=TOKEN, parse_mode=ParseMode.HTML)
+# Инициализация бота (новый способ для aiogram 3.7+)
+bot = Bot(
+    token=TOKEN,
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+)
+
 dp = Dispatcher()
 
-@dp.message(F.text)
-async def echo(msg: Message):
-    await msg.answer(msg.text)
+# Простой обработчик — эхо
+@dp.message()
+async def echo_message(message: types.Message):
+    try:
+        await message.send_copy(chat_id=message.chat.id)
+    except Exception:
+        await message.answer("Невозможно отправить это сообщение 😅")
 
-async def on_startup(app: web.Application):
-    # Устанавливаем webhook
-    await bot.set_webhook(WEBHOOK_URL)
-    print("Webhook set:", WEBHOOK_URL)
+# Основная функция
+async def main():
+    print("🚀 Бот запускается...")   # <-- добавлен вывод перед стартом
+    await dp.start_polling(bot)
+    print("✅ Бот успешно запущен и работает!")  # <-- если polling завершится
 
-async def on_shutdown(app: web.Application):
-    await bot.session.close()
-
-def create_app():
-    app = web.Application()
-    dp.startup.register(on_startup)
-    dp.shutdown.register(on_shutdown)
-
-    SimpleRequestHandler(dp, bot).register(app, path="/webhook")
-    setup_application(app, dp, bot=bot)
-    return app
-
-app = create_app()
+# Точка входа
+if __name__ == "__main__":
+    asyncio.run(main())
